@@ -26,8 +26,7 @@
 
 /* Number of maximum tcp connections to be kept in the pool */
 #ifndef HTTP_REQUEST_POOL_SIZE
-//#define HTTP_REQUEST_POOL_SIZE 20
-#define HTTP_REQUEST_POOL_SIZE 3
+#define HTTP_REQUEST_POOL_SIZE 20
 #endif
 
 #include "http-parser/http_parser.h"
