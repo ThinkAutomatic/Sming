@@ -29,8 +29,10 @@ typedef Delegate<int(HttpConnection& client, HttpResponse& response)> RequestHea
 typedef Delegate<int(HttpConnection& client, const char* at, size_t length)> RequestBodyDelegate;
 typedef Delegate<int(HttpConnection& client, bool successful)> RequestCompletedDelegate;
 
-/*
- * Encapsulates an incoming or outgoing request
+/**
+ * @brief Encapsulates an incoming or outgoing request
+ * @ingroup http
+ *
  */
 class HttpRequest
 {
@@ -185,6 +187,10 @@ public:
 		return bodyStream;
 	}
 
+	/**
+	 * @name Set request body content
+	 * @{
+	 */
 	HttpRequest* setBody(const String& body)
 	{
 		setBody(reinterpret_cast<const uint8_t*>(body.c_str()), body.length());
@@ -194,6 +200,7 @@ public:
 	HttpRequest* setBody(IDataSourceStream* stream);
 
 	HttpRequest* setBody(const uint8_t* rawData, size_t length);
+	/** @} */
 
 	/**
 	 * @brief Instead of storing the response body we can set a stream that will take care to process it
@@ -248,13 +255,22 @@ public:
 		return this;
 	}
 
-#ifndef SMING_RELEASE
 	/**
 	 * @brief Tries to present a readable version of the current request values
 	 * @retval String
 	 */
-	String toString();
-#endif
+	String toString()
+	{
+		return toString(*this);
+	}
+
+	/**
+	 * @brief Tries to present a readable version of the request
+	 * @param req
+	 *
+	 * @retval String
+	 */
+	String toString(const HttpRequest& req);
 
 public:
 	Url uri;
