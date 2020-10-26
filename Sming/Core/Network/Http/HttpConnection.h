@@ -52,7 +52,7 @@ public:
 	using TcpConnection::getRemoteIp;
 	using TcpConnection::getRemotePort;
 
-	using TcpClient::send;
+	bool send(const char* data, uint16_t len, bool forceCloseAfterSent = false);
 
 	/* Overridden by HttpClientConnection */
 	virtual bool send(HttpRequest* request)

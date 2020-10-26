@@ -61,6 +61,15 @@ void HttpConnection::setDefaultParser()
 	TcpClient::setReceiveDelegate(TcpClientDataDelegate(&HttpConnection::onTcpReceive, this));
 }
 
+bool HttpConnection::send(const char* data, uint16_t len, bool forceCloseAfterSent)
+{
+	if(TcpClient::send(data, len, forceCloseAfterSent)) {
+		onReadyToSendData(TcpConnectionEvent::eTCE_Poll);
+		return true;
+	}
+	return false;
+}
+
 void HttpConnection::resetHeaders()
 {
 	header.reset();
