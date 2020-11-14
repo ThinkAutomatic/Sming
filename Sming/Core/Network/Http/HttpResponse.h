@@ -32,6 +32,8 @@ public:
 
 	bool sendString(const String& text);
 
+	bool sendString(String&& text) noexcept;
+
 	/**
 	 * @deprecated Use `headers.contains()` instead
 	 */
@@ -64,13 +66,33 @@ public:
 		code = HTTP_STATUS_NOT_FOUND;
 	}
 
-	HttpResponse* setContentType(const String& type);
-	HttpResponse* setContentType(enum MimeType type);
+	HttpResponse* setContentType(const String& type)
+	{
+		headers[HTTP_HEADER_CONTENT_TYPE] = type;
+		return this;
+	}
+
+	HttpResponse* setContentType(enum MimeType type)
+	{
+		return setContentType(::toString(type));
+	}
+
 	HttpResponse* setCookie(const String& name, const String& value);
-	HttpResponse* setHeader(const String& name, const String& value);
+
+	HttpResponse* setHeader(const String& name, const String& value)
+	{
+		headers[name] = value;
+		return this;
+	}
+
 	HttpResponse* setCache(int maxAgeSeconds = 3600, bool isPublic = false);
+
 	// Access-Control-Allow-Origin for AJAX from a different domain
-	HttpResponse* setAllowCrossDomainOrigin(const String& controlAllowOrigin);
+	HttpResponse* setAllowCrossDomainOrigin(const String& controlAllowOrigin)
+	{
+		headers[HTTP_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN] = controlAllowOrigin;
+		return this;
+	}
 
 	/**
 	 * @brief Send file by name
@@ -105,7 +127,7 @@ public:
 	 */
 	bool sendDataStream(IDataSourceStream* newDataStream, enum MimeType type)
 	{
-		return sendDataStream(newDataStream, ContentType::toString(type));
+		return sendDataStream(newDataStream, ::toString(type));
 	}
 
 	/** @brief Send data from the given stream object
@@ -118,11 +140,20 @@ public:
 	bool sendDataStream(IDataSourceStream* newDataStream, const String& reqContentType = nullptr);
 
 	/**
-	 * @brief Get response body as a string
+	 * @brief Moves content from the body stream into a String.
 	 * @retval String
-	 * @note Use with caution if response is large
+	 * @note Move semantics are used to ensure that no/minimal additional memory is required.
+	 * If your application has set a non-memory stream type then the method will
+	 * fail and return an invalid String. The stream content will be left unchanged.
 	 */
-	String getBody();
+	String getBody()
+	{
+		String s;
+		if(stream != nullptr) {
+			stream->moveString(s);
+		}
+		return s;
+	}
 
 	/**
 	 * @brief reset response so it can be re-used
@@ -140,34 +171,42 @@ public:
 	 */
 	void freeStreams();
 
+	/**
+	 * @brief Determine if the response status indicates success
+	 */
 	bool isSuccess()
 	{
-		return (code >= HTTP_STATUS_OK && code <= 399);
+		return (code >= HTTP_STATUS_OK && code < HTTP_STATUS_BAD_REQUEST);
 	}
 
 	/**
 	 * @brief Tries to present a readable version of the current response values
 	 * @retval String
 	 */
-	String toString()
-	{
-		return toString(*this);
-	}
+	String toString() const;
 
 	/**
 	 * @brief Tries to present a readable version of the response
 	 * @param res
-	 *
 	 * @retval String
+	 * @deprecated use `toString()` method or `toString(HttpResponse)` function
 	 */
-	String toString(const HttpResponse& res);
+	static String toString(const HttpResponse& res) SMING_DEPRECATED
+	{
+		return res.toString();
+	}
 
 private:
 	void setStream(IDataSourceStream* stream);
 
 public:
-	unsigned code = HTTP_STATUS_OK; ///< The HTTP status response code
+	HttpStatus code = HTTP_STATUS_OK; ///< The HTTP status response code
 	HttpHeaders headers;
 	ReadWriteStream* buffer = nullptr;   ///< Internal stream for storing strings and receiving responses
 	IDataSourceStream* stream = nullptr; ///< The body stream
 };
+
+inline String toString(const HttpResponse& res)
+{
+	return res.toString();
+}

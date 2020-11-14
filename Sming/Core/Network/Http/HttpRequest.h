@@ -18,16 +18,15 @@
 #endif
 #include "../TcpConnection.h"
 #include "Data/Stream/DataSourceStream.h"
-#include "Data/Stream/MultipartStream.h"
 #include "HttpHeaders.h"
 #include "HttpParams.h"
 #include "Data/ObjectMap.h"
 
 class HttpConnection;
 
-typedef Delegate<int(HttpConnection& client, HttpResponse& response)> RequestHeadersCompletedDelegate;
-typedef Delegate<int(HttpConnection& client, const char* at, size_t length)> RequestBodyDelegate;
-typedef Delegate<int(HttpConnection& client, bool successful)> RequestCompletedDelegate;
+using RequestHeadersCompletedDelegate = Delegate<int(HttpConnection& client, HttpResponse& response)>;
+using RequestBodyDelegate = Delegate<int(HttpConnection& client, const char* at, size_t length)>;
+using RequestCompletedDelegate = Delegate<int(HttpConnection& client, bool successful)>;
 
 /**
  * @brief Encapsulates an incoming or outgoing request
@@ -167,15 +166,20 @@ public:
 	}
 
 	/**
-	 * @brief Returns content from the body stream as string.
+	 * @brief Moves content from the body stream into a String.
 	 * @retval String
-	 *
-	 * @note This method consumes the stream and it will work only with text data.
-	 * 		 If you have binary data in the stream use getBodyStream instead.
-	 *
-	 * @note Allocation of String doubles amount of memory required, so use with care.
+	 * @note Move semantics are used to ensure that no/minimal additional memory is required.
+	 * If your application has set a non-memory stream type then the method will
+	 * fail and return an invalid String. The stream content will be left unchanged.
 	 */
-	String getBody();
+	String getBody()
+	{
+		String s;
+		if(bodyStream != nullptr) {
+			bodyStream->moveString(s);
+		}
+		return s;
+	}
 
 	/**
 	 * @brief Return the current body stream
@@ -193,9 +197,10 @@ public:
 	 */
 	HttpRequest* setBody(const String& body)
 	{
-		setBody(reinterpret_cast<const uint8_t*>(body.c_str()), body.length());
-		return this;
+		return setBody(reinterpret_cast<const uint8_t*>(body.c_str()), body.length());
 	}
+
+	HttpRequest* setBody(String&& body) noexcept;
 
 	HttpRequest* setBody(IDataSourceStream* stream);
 
@@ -259,10 +264,7 @@ public:
 	 * @brief Tries to present a readable version of the current request values
 	 * @retval String
 	 */
-	String toString()
-	{
-		return toString(*this);
-	}
+	String toString() const;
 
 	/**
 	 * @brief Tries to present a readable version of the request
@@ -270,7 +272,10 @@ public:
 	 *
 	 * @retval String
 	 */
-	String toString(const HttpRequest& req);
+	static String toString(const HttpRequest& req)
+	{
+		return req.toString();
+	}
 
 public:
 	Url uri;
@@ -299,3 +304,8 @@ protected:
 private:
 	HttpParams* queryParams = nullptr; // << @todo deprecate
 };
+
+inline String toString(const HttpRequest& req)
+{
+	return req.toString();
+}

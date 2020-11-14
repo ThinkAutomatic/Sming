@@ -34,7 +34,7 @@ class String;
 class IDataSourceStream;
 class TcpConnection;
 
-typedef Delegate<void(TcpConnection&)> TcpConnectionDestroyedDelegate;
+using TcpConnectionDestroyedDelegate = Delegate<void(TcpConnection&)>;
 
 class TcpConnection : public IpConnection
 {
@@ -161,6 +161,14 @@ protected:
 	virtual err_t onPoll();
 	virtual void onError(err_t err);
 	virtual void onReadyToSendData(TcpConnectionEvent sourceEvent);
+
+	/**
+	 * @brief Gets called when there is/was a tcp connection, the latter does not have to be established, that is closed due to error or normal disconnect.
+	 * @note This method can be used to trigger reconnects
+	 */
+	virtual void onClosed()
+	{
+	}
 
 	/*
 	 * If there is space in the TCP output buffer, then don't wait for TCP

@@ -23,6 +23,7 @@
 #include "Http/HttpRequest.h"
 #include "Http/HttpClientConnection.h"
 #include "Data/Stream/LimitedMemoryStream.h"
+#include <Timer.h>
 
 class HttpClient
 {
@@ -56,6 +57,16 @@ public:
 	{
 		return send(createRequest(url)->setMethod(method)->setHeaders(headers)->setBody(body)->onRequestComplete(
 			requestComplete));
+	}
+
+	bool sendRequest(const HttpMethod method, const Url& url, const HttpHeaders& headers, String&& body,
+					 RequestCompletedDelegate requestComplete) noexcept
+	{
+		return send(createRequest(url)
+						->setMethod(method)
+						->setHeaders(headers)
+						->setBody(std::move(body))
+						->onRequestComplete(requestComplete));
 	}
 
 	/**
@@ -116,7 +127,7 @@ public:
 	}
 
 	/**
-	 * Use this method to clean all request queues and object pools
+	 * @brief Use this method to clean all object pools
 	 */
 	static void cleanup()
 	{
@@ -130,8 +141,12 @@ protected:
 	}
 
 protected:
-	typedef ObjectMap<String, HttpClientConnection> HttpConnectionPool;
+	using HttpConnectionPool = ObjectMap<String, HttpClientConnection>;
 	static HttpConnectionPool httpConnectionPool;
+
+private:
+	static Timer cleanUpTimer;
+	static void cleanInactive();
 };
 
 /** @} */

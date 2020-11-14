@@ -516,6 +516,10 @@ changed as required.
 
    Locations for source code relative to COMPONENT_PATH (defaults to “. src”)
 
+.. envvar:: COMPONENT_SRCFILES
+
+   Individual source files. Useful for conditional includes.
+
 .. envvar:: COMPONENT_INCDIRS
 
    Default: "include".
@@ -741,6 +745,3 @@ directory called ‘spiffs’ still remains then it will be picked up
 instead of the main one. These sorts of issues can be checked using
 ``make list-components`` to ensure the correct Component path has been
 selected.
-
-**Components as submodules** All component.mk files must be available
-for parsing. For submodules, it can be provided in a .patch/ sub-directory.

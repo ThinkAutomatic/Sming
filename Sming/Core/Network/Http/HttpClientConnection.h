@@ -15,6 +15,7 @@
 #include "HttpConnection.h"
 #include "DateTime.h"
 #include "Data/ObjectQueue.h"
+#include <Data/Stream/MultipartStream.h>
 
 /**
  *  @brief      Provides http client connection
@@ -22,7 +23,7 @@
  *  @{
  */
 
-typedef ObjectQueue<HttpRequest, HTTP_REQUEST_POOL_SIZE> RequestQueue;
+using RequestQueue = ObjectQueue<HttpRequest, HTTP_REQUEST_POOL_SIZE>;
 
 class HttpClientConnection : public HttpConnection
 {
@@ -52,6 +53,11 @@ public:
 
 	void reset() override;
 
+	bool isFinished()
+	{
+		return (waitingQueue.count() + executionQueue.count() == 0);
+	}
+
 protected:
 	// HTTP parser methods
 
@@ -62,6 +68,8 @@ protected:
 
 	// TCP methods
 	void onReadyToSendData(TcpConnectionEvent sourceEvent) override;
+
+	void onClosed() override;
 
 	void cleanup() override;
 
@@ -77,7 +85,7 @@ protected:
 private:
 	void sendRequestHeaders(HttpRequest* request);
 	bool sendRequestBody(HttpRequest* request);
-	HttpPartResult multipartProducer();
+	MultipartStream::BodyPart multipartProducer();
 
 private:
 	RequestQueue waitingQueue;   ///< Requests waiting to be started

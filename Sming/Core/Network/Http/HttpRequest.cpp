@@ -13,28 +13,6 @@
 #include "HttpRequest.h"
 #include "Data/Stream/MemoryDataStream.h"
 
-String HttpRequest::getBody()
-{
-	if(bodyStream == nullptr || bodyStream->getStreamType() != eSST_Memory) {
-		return nullptr;
-	}
-
-	int len = bodyStream->available();
-	if(len <= 0) {
-		// Cannot determine body size so need to use stream
-		return nullptr;
-	}
-
-	String ret;
-	if(ret.setLength(len)) {
-		len = bodyStream->readMemoryBlock(ret.begin(), len);
-		// Just in case read count is less than reported count
-		ret.setLength(len);
-	}
-
-	return ret;
-}
-
 HttpRequest* HttpRequest::setResponseStream(ReadWriteStream* stream)
 {
 	if(responseStream != nullptr) {
@@ -55,6 +33,11 @@ HttpRequest* HttpRequest::setBody(const uint8_t* rawData, size_t length)
 	}
 
 	return setBody(memory);
+}
+
+HttpRequest* HttpRequest::setBody(String&& body) noexcept
+{
+	return setBody(new MemoryDataStream(std::move(body)));
 }
 
 HttpRequest* HttpRequest::setBody(IDataSourceStream* stream)
@@ -83,20 +66,20 @@ void HttpRequest::reset()
 	files.clear();
 }
 
-String HttpRequest::toString(const HttpRequest& req)
+String HttpRequest::toString() const
 {
 	String content;
-	content += http_method_str(req.method);
+	content += ::toString(method);
 	content += ' ';
-	content += req.uri.getPathWithQuery();
+	content += uri.getPathWithQuery();
 	content += _F(" HTTP/1.1\r\n");
-	content += req.headers.toString(HTTP_HEADER_HOST, uri.getHostWithPort());
-	for(unsigned i = 0; i < req.headers.count(); i++) {
-		content += req.headers[i];
+	content += headers.toString(HTTP_HEADER_HOST, uri.getHostWithPort());
+	for(unsigned i = 0; i < headers.count(); i++) {
+		content += headers[i];
 	}
 
-	if(req.bodyStream != nullptr && req.bodyStream->available() >= 0) {
-		content += req.headers.toString(HTTP_HEADER_CONTENT_LENGTH, String(req.bodyStream->available()));
+	if(bodyStream != nullptr && bodyStream->available() >= 0) {
+		content += headers.toString(HTTP_HEADER_CONTENT_LENGTH, String(bodyStream->available()));
 	} else {
 		content += "\r\n";
 	}
