@@ -73,7 +73,6 @@ public:
 
 	virtual ~WebsocketConnection()
 	{
-		state = eWSCS_Closed;
 		close();
 	}
 
@@ -214,7 +213,14 @@ public:
 	{
 		wsBinary = handler;
 	}
-
+	/**
+	 * @brief Sets the callback handler to be called when pong reply received
+	 * @param handler
+	 */
+	void setPongHandler(WebsocketDelegate handler)
+	{
+		wsPong = handler;
+	}
 	/**
 	 * @brief Sets the callback handler to be called before sending required pong response
 	 * @param handler
@@ -308,6 +314,7 @@ protected:
 	WebsocketMessageDelegate wsMessage = nullptr;
 	WebsocketBinaryDelegate wsBinary = nullptr;
 	WebsocketDelegate wsPing = nullptr;
+	WebsocketDelegate wsPong = nullptr;
 	WebsocketDelegate wsDisconnect = nullptr;
 
 	void* userData = nullptr;

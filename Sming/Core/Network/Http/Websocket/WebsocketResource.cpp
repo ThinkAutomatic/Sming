@@ -23,6 +23,7 @@ int WebsocketResource::checkHeaders(HttpServerConnection& connection, HttpReques
 	socket->setBinaryHandler(wsBinary);
 	socket->setMessageHandler(wsMessage);
 	socket->setConnectionHandler(wsConnect);
+	socket->setPongHandler(wsPong);
 	socket->setDisconnectionHandler(wsDisconnect);
 	socket->setPingHandler(wsPing);
 	if(!socket->bind(request, response)) {

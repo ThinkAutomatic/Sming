@@ -38,6 +38,11 @@ else ifneq ($(filter MSYS%WOW,$(UNAME)),)
 	UNAME		:= Linux
 else ifeq ($(UNAME), Linux)
  	#Linux
+ 	# Detect WSL (Windows Subsystem for Linux)
+ 	ifdef WSL_DISTRO_NAME
+        DEBUG_VARS += WSL_ROOT
+        WSL_ROOT := //wsl$$/$(WSL_DISTRO_NAME)
+ 	endif
 else ifeq ($(UNAME), Darwin)
  	#OS X
 else ifeq ($(UNAME), Freebsd)
@@ -105,7 +110,7 @@ DEBUG_VARS += PYTHON
 ifdef PYTHON
 export PYTHON := $(call FixPath,$(PYTHON))
 else
-PYTHON := python
+PYTHON := python3
 endif
 
 PYTHON_VERSION := $(shell $(PYTHON) --version 2>&1)
@@ -139,6 +144,9 @@ CPPFLAGS += \
 	-DARDUINO=106
 
 # If STRICT is enabled, show all warnings but don't treat as errors
+DEBUG_VARS += STRICT
+STRICT ?= 0
+export STRICT
 ifneq ($(STRICT),1)
 CPPFLAGS += \
 	-Werror \
@@ -172,6 +180,8 @@ endif
 
 include $(ARCH_BASE)/build.mk
 
+DEBUG_VARS += ESP_VARIANT
+
 # Detect compiler version
 DEBUG_VARS			+= GCC_VERSION
 GCC_VERSION			:= $(shell $(CC) -dumpversion)
@@ -189,7 +199,15 @@ SMING_CXX_STD		?= c++17
 endif
 CXXFLAGS			+= -std=$(SMING_CXX_STD)
 
+GCC_MIN_MAJOR_VERSION := 8
+GCC_VERSION_COMPATIBLE := $(shell expr $$(echo $(GCC_VERSION) | cut -f1 -d.) \>= $(GCC_MIN_MAJOR_VERSION))
 
+ifeq ($(GCC_VERSION_COMPATIBLE),0)
+$(warning ***** Please, upgrade your GCC compiler to version $(GCC_MIN_MAJOR_VERSION) or newer *****)
+ifneq ($(GCC_UPGRADE_URL),)
+$(info Instructions for upgrading your compiler can be found here: $(GCC_UPGRADE_URL))
+endif 
+endif
 
 # Component (user) libraries have a special prefix so linker script can identify them
 CLIB_PREFIX := clib-
@@ -236,13 +254,29 @@ define IsSubDir
 $(if $(subst $(1:/=),,$(2:/=)),$(findstring $(1:/=),$2),)
 endef
 
+# List sub-directories recursively for a single root directory
+# Results are sorted and without trailing path separator
+# Sub-directories with spaces are skipped
+# $1 -> Root path
+define ListAllSubDirsSingle
+$(foreach d,$(dir $(wildcard $1/*/.)),$(if $(call IsSubDir,$1,$d),$(d:/=) $(call ListAllSubDirs,$(d:/=))))
+endef
+
 # List sub-directories recursively for a list of root directories
 # Results are sorted and without trailing path separator
 # Sub-directories with spaces are skipped
 # $1 -> Root paths
 define ListAllSubDirs
-$(foreach d,$(dir $(wildcard $1/*/.)),$(if $(call IsSubDir,$1,$d),$(d:/=) $(call ListAllSubDirs,$(d:/=))))
+$(foreach d,$1,$(call ListAllSubDirsSingle,$d))
 endef
+
+# Recursively search list of directories for matching files
+# $1 -> Directories to scan
+# $2 -> Filename filter
+define ListAllFiles
+$(wildcard $(foreach d,$(call ListAllSubDirs,$1),$d/$2))
+endef
+
 
 # Display variable and list values, e.g. $(call PrintVariable,LIBS)
 # $1 -> Name of variable containing values
@@ -262,6 +296,11 @@ define PrintVariableRefs
 	$(info $1)
 	$(foreach item,$(sort $($1)),$(info - $(item) = $(value $(item))) )
 endef
+
+#
+# Get directory without trailing separator
+# $1 -> List of directories
+dirx = $(patsubst %/,%,$(dir $1))
 
 # Extract commented target information from makefiles and display
 # Based on code from https://suva.sh/posts/well-documented-makefiles/

@@ -22,29 +22,36 @@ If you like **Sming**, give it a star, or fork it and [contribute](#contribute)!
 Table of Contents
 =================
 
-* [Summary](#summary)
-* [Compatibility](#compatibility)
-   * [Architecture: ESP8266](#architecture-esp8266)
-   * [Architecture: Host](#architecture-host)
-* [Releases](#releases)
-   * [Stable](#stable)
-   * [Development](#development)
-* [Getting Started](#getting-started)
-* [Documentation](#documentation)
-* [Examples](#examples)
-   * [Basic Blink](#basic-blink)
-   * [Simple GPIO Input/Output](#simple-gpio-inputoutput)
-   * [Start Serial Communication](#start-serial-communication)
-   * [Connect to WiFi](#connect-to-wifi)
-   * [Read DHT22 sensor](#read-dht22-sensor)
-   * [HTTP Client](#http-client)
-   * [OTA Application Update Based on rBoot](#ota-application-update-based-on-rboot)
-   * [HTTP Server](#http-server)
-   * [Email Client](#email-client)
-* [Live Debugging](#live-debugging)
-* [Contribute](#contribute)
-   * [Financial contributions](#financial-contributions)
-      * [Backers and sponsors](#backers-and-sponsors)
+<!--ts-->
+   * [Sming](#sming)
+   * [Table of Contents](#table-of-contents)
+      * [Summary](#summary)
+      * [Compatibility](#compatibility)
+         * [GCC compiler &gt;= 8](#gcc-compiler--8)
+         * [Architecture: ESP8266](#architecture-esp8266)
+         * [Architecture: Host](#architecture-host)
+         * [Architecture: ESP32 (Experimental)](#architecture-esp32-experimental)
+      * [Releases](#releases)
+         * [Stable](#stable)
+         * [Long Term Support (LTS)](#long-term-support-lts)
+         * [Development](#development)
+      * [Getting Started](#getting-started)
+      * [Documentation](#documentation)
+      * [Examples](#examples)
+         * [Basic Blink](#basic-blink)
+         * [Simple GPIO Input/Output](#simple-gpio-inputoutput)
+         * [Start Serial Communication](#start-serial-communication)
+         * [Connect to WiFi](#connect-to-wifi)
+         * [Read DHT22 sensor](#read-dht22-sensor)
+         * [HTTP Client](#http-client)
+         * [OTA Application Update Based on rBoot](#ota-application-update-based-on-rboot)
+         * [HTTP Server](#http-server)
+         * [Email Client](#email-client)
+      * [Live Debugging](#live-debugging)
+      * [Contribute](#contribute)
+         * [Financial contributions](#financial-contributions)
+            * [Backers and sponsors](#backers-and-sponsors)
+<!--te-->
 
 Please note Version 4 documentation is at [sming.readthedocs.io](https://sming.readthedocs.io/).
 
@@ -74,6 +81,16 @@ Please note Version 4 documentation is at [sming.readthedocs.io](https://sming.r
 
 ## Compatibility
 
+
+### GCC compiler >= 8
+
+Your GCC compiler should be version 8 or newer! See the different architectures for details.
+Newer compilers
+
+- contain bugfixes
+- produce smaller and better code
+- have features which facilitate code quality, ease of use, etc.
+
 ### Architecture: ESP8266
 
 OS/SDK | Linux | Mac OS X | Windows | FreeBSD-current |
@@ -93,14 +110,19 @@ Linux and Windows OSes with gcc compilers are supported. Clang is NOT supported.
 
 ### Architecture: ESP32 (Experimental)
 
-Supported SDK: ESP-IDF v4.0
+Supported SDK: ESP-IDF v4.1
 
 
 ## Releases
 
 ### Stable
 
-- [Sming V4.1.1](https://github.com/SmingHub/Sming/releases/tag/4.1.1) - great new features, performance and stability improvements.
+- [Sming V4.2.0](https://github.com/SmingHub/Sming/releases/tag/4.2.0) - great new features, performance and stability improvements.
+
+
+### Long Term Support (LTS)
+
+- Sming V4.2.x is our LTS version which will be supported until the end of 2021.
 
 
 ### Development

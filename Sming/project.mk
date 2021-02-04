@@ -73,6 +73,7 @@ CONFIG_VARS			+= USER_CFLAGS
 DEBUG_VARS			+= GLOBAL_CFLAGS
 GLOBAL_CFLAGS = \
 	-DSMING_ARCH=$(SMING_ARCH) \
+	-DESP_VARIANT=$(ESP_VARIANT) \
 	-DPROJECT_DIR=\"$(PROJECT_DIR)\" \
 	-DSMING_HOME=\"$(SMING_HOME)\" \
 	$(USER_CFLAGS)
@@ -105,13 +106,6 @@ APP_NAME			?= app
 FW_MEMINFO_NEW		:= $(FW_BASE)/fwMeminfo.new
 FW_MEMINFO_OLD		:= $(FW_BASE)/fwMeminfo.old
 FW_MEMINFO_SAVED	:= out/fwMeminfo
-
-# Enable extra warnings but don't stop on error
-CACHE_VARS			+= STRICT
-
-# Set to 1 to enable some legacy building behaviour
-CACHE_VARS			+= ENABLE_LEGACY_BUILD
-ENABLE_LEGACY_BUILD	?= 0
 
 # List of Components we're going to parse, with duplicate libraries removed
 COMPONENTS			:= Sming
@@ -166,9 +160,11 @@ COMPONENT_INCDIRS		:= include
 COMPONENT_NAME			:= $1
 COMPONENT_LIBNAME		:= $1
 CMP_$1_BUILD_BASE		:= $3/$1
+COMPONENT_BUILD_BASE	:= $$(CMP_$1_BUILD_BASE)
 COMPONENT_BUILD_DIR		:= $$(CMP_$1_BUILD_BASE)
 COMPONENT_VARS			:=
 COMPONENT_RELINK_VARS	:=
+COMPONENT_PREREQUISITES	:=
 COMPONENT_TARGETS		:=
 COMPONENT_DEPENDS		:=
 COMPONENT_PYTHON_REQUIREMENTS		:= $$(wildcard $2/requirements.txt)
@@ -190,6 +186,7 @@ LIBS					+= $$(EXTRA_LIBS)
 CMP_$1_LDFLAGS			:= $$(EXTRA_LDFLAGS)
 LDFLAGS					+= $$(CMP_$1_LDFLAGS)
 endif
+CMP_$1_PREREQUISITES	:= $$(COMPONENT_PREREQUISITES)
 CMP_$1_TARGETS			:= $$(COMPONENT_TARGETS)
 CMP_$1_BUILD_DIR		:= $$(COMPONENT_BUILD_DIR)
 CMP_$1_LIBNAME			:= $$(COMPONENT_LIBNAME)
@@ -211,7 +208,7 @@ endif # App
 endef # ParseComponent
 
 # Build a list of all available Components
-ALL_COMPONENT_DIRS = $(foreach d,$(COMPONENT_SEARCH_DIRS),$(call ListSubDirs,$d))
+ALL_COMPONENT_DIRS = $(foreach d,$(ALL_SEARCH_DIRS),$(call ListSubDirs,$d))
 
 # Lookup Component directory from a name
 # $1 -> Component name
@@ -238,9 +235,9 @@ ifndef MAKE_CLEAN
 endif
 
 # Append standard search directories to any defined by the application
-COMPONENT_SEARCH_DIRS	:= $(call FixPath,$(abspath $(COMPONENT_SEARCH_DIRS)))
-COMPONENTS_EXTRA_INCDIR	+= $(COMPONENT_SEARCH_DIRS)
-COMPONENT_SEARCH_DIRS	+= $(ARCH_COMPONENTS) $(SMING_HOME)/Components $(SMING_HOME)/Libraries
+ALL_SEARCH_DIRS			:= $(call FixPath,$(abspath $(COMPONENT_SEARCH_DIRS)))
+COMPONENTS_EXTRA_INCDIR	+= $(ALL_SEARCH_DIRS)
+ALL_SEARCH_DIRS			+= $(ARCH_COMPONENTS) $(SMING_HOME)/Components $(SMING_HOME)/Libraries
 
 # And add in any requested libraries
 COMPONENTS				+= $(sort $(ARDUINO_LIBRARIES))
@@ -272,7 +269,7 @@ $(foreach c,$(COMPONENTS),$(eval $(call ResolveDependencies,$c)))
 # $1 => Component name
 define CheckComponentMatches
 ifneq ($1,Sming)
-COMPONENT_MATCHES := $(filter %/$1,$(ALL_COMPONENT_DIRS))
+COMPONENT_MATCHES := $(sort $(filter %/$1,$(ALL_COMPONENT_DIRS)))
 ifeq ($$(words $$(COMPONENT_MATCHES)),0)
 $$(warning No matches found for Component '$1')
 else ifneq ($$(words $$(COMPONENT_MATCHES)),1)
@@ -334,12 +331,12 @@ $(foreach v,$(EXPORT_VARS),$(eval export $v))
 
 ##@Building
 
-COMPONENT_DIRS := $(foreach d,$(COMPONENT_SEARCH_DIRS),$(wildcard $d/*))
+COMPONENT_DIRS := $(foreach d,$(ALL_SEARCH_DIRS),$(wildcard $d/*))
 
 %/component.mk:
 	@if [ -f $(@D)/../.patches/$(notdir $(@D))/component.mk ]; then \
 		echo Patching $(abspath $(@D)/../.patches/$(notdir $(@D))/component.mk); \
-		cp -u $(@D)/../.patches/$(notdir $(@D))/component.mk $@; \
+		cp $(@D)/../.patches/$(notdir $(@D))/component.mk $@; \
 	fi
 
 SUBMODULES_FOUND = $(wildcard $(SUBMODULES:=/.submodule))
@@ -368,6 +365,7 @@ $1-build: $(addsuffix -build,$(filter $(CMP_$1_DEPENDS),$(BUILDABLE_COMPONENTS))
 	+$(Q) $(MAKE) -r -R --no-print-directory -C $(CMP_$1_BUILD_DIR) -f $(SMING_HOME)/component-wrapper.mk \
 		COMPONENT_NAME=$1 \
 		COMPONENT_PATH=$(CMP_$1_PATH) \
+		COMPONENT_BUILD_BASE=$(CMP_$1_BUILD_BASE) \
 		COMPONENT_LIBDIR=$(CMP_$1_LIBDIR) \
 		COMPONENT_LIBNAME=$(CMP_$1_LIBNAME) \
 		COMPONENT_LIBHASH=$(CMP_$1_LIBHASH) \
@@ -438,9 +436,12 @@ checkdirs: | $(BUILD_BASE) $(FW_BASE) $(TOOLS_BASE) $(APP_LIBDIR) $(USER_LIBDIR)
 $(BUILD_BASE) $(FW_BASE) $(TOOLS_BASE) $(APP_LIBDIR) $(USER_LIBDIR):
 	$(Q) mkdir -p $@
 
+# Targets to be built before anything else (e.g. source code generators)
+PREREQUISITES := $(foreach c,$(COMPONENTS),$(CMP_$c_PREREQUISITES))
+
 # Build all Component (user) libraries
 .PHONY: components
-components: $(ALL_COMPONENT_TARGETS) $(CUSTOM_TARGETS)
+components: $(PREREQUISITES) $(ALL_COMPONENT_TARGETS) $(CUSTOM_TARGETS)
 
 ##@Cleaning
 
@@ -485,6 +486,9 @@ cs-dev: ##Apply coding style to all files changed from current upstream develop 
 gdb: kill_term ##Run the debugger console
 	$(GDB_CMDLINE)
 
+.PHONY: fetch
+fetch: ##Fetch Component or Library and display location
+	$(SMING_MAKE) $(MAKECMDGOALS)
 
 # Stack trace decoder
 CACHE_VARS += TRACE
@@ -526,6 +530,7 @@ list-config: ##Print the contents of build variables
 	$(info ** Sming build configuration **)
 	$(info )
 	$(if $(V),$(call PrintVariable,MAKEFILE_LIST))
+	$(call PrintVariableSorted,PREREQUISITES)
 	$(call PrintVariableSorted,CUSTOM_TARGETS)
 	$(call PrintVariableSorted,LIBS)
 	$(call PrintVariableSorted,ARDUINO_LIBRARIES)
@@ -558,7 +563,7 @@ endef
 
 .PHONY: list-components
 list-components: ##Print details of all Components for this project
-	$(call PrintVariable,COMPONENT_SEARCH_DIRS)
+	$(call PrintVariable,ALL_SEARCH_DIRS)
 	$(if $(V),$(call PrintVariable,ALL_COMPONENT_DIRS))
 	$(info Components:)
 	$(foreach c,$(sort $(COMPONENTS)),$(eval $(call PrintComponentInfo,$c)))
@@ -590,14 +595,6 @@ ifneq (,$V)
 endif
 
 
-# Update build type cache
-$(shell	mkdir -p $(dir $(BUILD_TYPE_FILE)); \
-		echo '# Automatically generated file. Do not edit.' > $(BUILD_TYPE_FILE); \
-		echo >> $(BUILD_TYPE_FILE); \
-		echo 'SMING_ARCH := $(SMING_ARCH)' >> $(BUILD_TYPE_FILE); \
-		echo 'SMING_RELEASE := $(SMING_RELEASE)' >> $(BUILD_TYPE_FILE); )
-
-
 # Called at final output stage to write a copy of config variables used for the build
 # $1 -> Name of output file
 define WriteFirmwareConfigFile
@@ -611,8 +608,11 @@ define WriteCacheValues
 $(shell	mkdir -p $(dir $1);
 	echo '# Automatically generated file. Do not edit.' > $1;
 	echo >> $1;
-	$(foreach v,$2,echo '$v = $(value $v)' >> $1;) )
+	$(foreach v,$2,echo '$v=$(value $v)' >> $1;) )
 endef
+
+# Update build type cache
+$(eval $(call WriteCacheValues,$(BUILD_TYPE_FILE),SMING_ARCH ESP_VARIANT SMING_RELEASE STRICT))
 
 # Update config cache file
 # We store the list of variable names to ensure that any not actively in use don't get lost

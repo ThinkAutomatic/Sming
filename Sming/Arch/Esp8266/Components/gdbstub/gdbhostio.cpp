@@ -17,7 +17,7 @@
 #if GDBSTUB_ENABLE_HOSTIO
 
 #include "GdbPacket.h"
-#include <sys/errno.h>
+#include <errno.h>
 #include <fcntl.h>
 #include "FileSystem.h"
 #include "WString.h"
@@ -59,6 +59,7 @@ void ATTR_GDBEXTERNFN gdbHandleHostIo(char* commandBuffer, unsigned cmdLen)
 		unsigned flags = GdbPacket::readHexValue(data);
 		++data;						   // Skip ,
 		unsigned mode = GdbPacket::readHexValue(data); // Skip mode (not used)
+		(void)mode;
 
 		FileOpenFlags openFlags;
 		if((flags & 0xff) == O_RDWR) {

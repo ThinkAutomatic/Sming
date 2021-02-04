@@ -93,6 +93,12 @@ COMPONENT_VARS			+= HTTP_SERVER_EXPOSE_VERSION
 HTTP_SERVER_EXPOSE_VERSION ?= 0
 GLOBAL_CFLAGS			+= -DHTTP_SERVER_EXPOSE_VERSION=$(HTTP_SERVER_EXPOSE_VERSION)
 
+# => SPI
+COMPONENT_VARS			+= ENABLE_SPI_DEBUG
+ENABLE_SPI_DEBUG		?= 0
+ifeq ($(ENABLE_SPI_DEBUG),1)
+GLOBAL_CFLAGS			+= -DSPI_DEBUG=1
+endif
 
 ### Debug output parameters
 
@@ -137,3 +143,12 @@ COMPONENT_CXXFLAGS	+= -DTASK_QUEUE_LENGTH=$(TASK_QUEUE_LENGTH)
 COMPONENT_VARS		+= STRING_OBJECT_SIZE
 STRING_OBJECT_SIZE	?= 12
 GLOBAL_CFLAGS		+= -DSTRING_OBJECT_SIZE=$(STRING_OBJECT_SIZE) 
+
+##@Flashing
+
+.PHONY: flashinit
+flashinit: $(ESPTOOL) $(FLASH_INIT_DATA) | $(FW_BASE) ##Erase your device's flash memory and reset system configuration area to defaults
+	$(info Flash init data default and blank data)
+	$(info DISABLE_SPIFFS = $(DISABLE_SPIFFS))
+	$(Q) $(EraseFlash)
+	$(call WriteFlash,$(FLASH_INIT_CHUNKS))

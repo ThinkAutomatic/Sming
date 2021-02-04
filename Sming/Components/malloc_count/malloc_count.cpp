@@ -43,15 +43,30 @@
 
 // Names for the actual implementations
 #ifdef ARCH_HOST
+
 #define F_MALLOC malloc
 #define F_CALLOC calloc
 #define F_REALLOC realloc
 #define F_FREE free
-#else
+
+#elif defined(ARCH_ESP8266)
+
 #define F_MALLOC pvPortMalloc
 #define F_CALLOC pvPortCalloc
 #define F_REALLOC pvPortRealloc
 #define F_FREE vPortFree
+
+#elif defined(ARCH_ESP32)
+
+#define F_MALLOC malloc
+#define F_CALLOC calloc
+#define F_REALLOC realloc
+#define F_FREE free
+
+#else
+
+#error Unsupported Architecture
+
 #endif
 
 #define CONCAT(a, b) a##b
@@ -65,29 +80,18 @@ void* REAL(F_CALLOC)(size_t nmemb, size_t size);
 void* REAL(F_REALLOC)(void* ptr, size_t size);
 };
 
-namespace MallocCount
+namespace
 {
 /* user-defined options for output malloc()/free() operations to stderr */
-
-static bool logEnabled = false;
-static size_t logThreshold = 256;
-
-void enableLogging(bool enable)
-{
-	logEnabled = enable;
-}
-
-void setLogThreshold(size_t threshold)
-{
-	logThreshold = threshold;
-}
+bool logEnabled{false};
+size_t logThreshold{256};
 
 /* to each allocation additional data is added for bookkeeping. due to
  * alignment requirements, we can optionally add more than just one integer. */
-static const size_t alignment = 16; /* bytes (>= 2*sizeof(size_t)) */
+constexpr size_t alignment{16}; /* bytes (>= 2*sizeof(size_t)) */
 
 /* a sentinel value prefixed to each allocation */
-static const size_t sentinel = 0xDEADC0DE;
+constexpr size_t sentinel{0xDEADC0DE};
 
 /* Macro to get pointer to sentinel */
 #define GET_SENTINEL(ptr) (size_t*)((char*)ptr - sizeof(size_t))
@@ -104,19 +108,23 @@ static const size_t sentinel = 0xDEADC0DE;
 /* run-time memory allocation statistics */
 /*****************************************/
 
-static struct {
+struct Stats {
 	size_t peak;	// Peak memory allocated
 	size_t current; // Current memory allocated
 	size_t total;   // Cumulative memory allocated
 	size_t count;   // Number of allocations called
-} stats;
+};
 
-static size_t allocationLimit = 0;
+Stats stats{};
 
-static MallocCountCallback userCallback = nullptr;
+size_t allocationLimit{0};
+
+MallocCount::Callback userCallback;
+
+#ifdef ENABLE_MALLOC_COUNT
 
 /* add allocation to statistics */
-static void inc_count(size_t inc)
+void inc_count(size_t inc)
 {
 	stats.current += inc;
 	stats.total += inc;
@@ -131,12 +139,28 @@ static void inc_count(size_t inc)
 }
 
 /* decrement allocation to statistics */
-static void dec_count(size_t dec)
+void dec_count(size_t dec)
 {
 	stats.current -= dec;
 	if(userCallback) {
 		userCallback(stats.current);
 	}
+}
+
+#endif // ENABLE_MALLOC_COUNT
+
+} // namespace
+
+namespace MallocCount
+{
+void enableLogging(bool enable)
+{
+	logEnabled = enable;
+}
+
+void setLogThreshold(size_t threshold)
+{
+	logThreshold = threshold;
 }
 
 /* user function to return the currently allocated amount of memory */
@@ -180,10 +204,12 @@ void setAllocLimit(size_t maxBytes)
 }
 
 /* user function to supply a memory profile callback */
-void setCallback(MallocCountCallback callback)
+void setCallback(Callback callback)
 {
 	userCallback = callback;
 }
+
+#ifdef ENABLE_MALLOC_COUNT
 
 /****************************************************/
 /* malloc_count function implementations             */
@@ -318,7 +344,11 @@ static __attribute__((destructor)) void finish()
 	log("exiting, total: %u, peak: %u, current: %u", stats.total, stats.peak, stats.current);
 }
 
+#endif // ENABLE_MALLOC_COUNT
+
 }; // namespace MallocCount
+
+#ifdef ENABLE_MALLOC_COUNT
 
 /****************************************************/
 /* exported symbols that overlay the libc functions */
@@ -329,7 +359,16 @@ extern "C" void* WRAP(calloc)(size_t, size_t) __attribute__((alias("mc_calloc"))
 extern "C" void* WRAP(realloc)(void*, size_t) __attribute__((alias("mc_realloc")));
 extern "C" void WRAP(free)(void*) __attribute__((alias("mc_free")));
 
-#ifdef ARCH_HOST
+#ifdef ARCH_ESP8266
+
+extern "C" void* WRAP(pvPortMalloc)(size_t) __attribute__((alias("mc_malloc")));
+extern "C" void* WRAP(pvPortCalloc)(size_t, size_t) __attribute__((alias("mc_calloc")));
+extern "C" void* WRAP(pvPortRealloc)(void*, size_t) __attribute__((alias("mc_realloc")));
+extern "C" void* WRAP(pvPortZalloc)(size_t) __attribute__((alias("mc_zalloc")));
+extern "C" void* WRAP(pvPortZallocIram)(size_t) __attribute__((alias("mc_zalloc")));
+extern "C" void WRAP(vPortFree)(void*) __attribute__((alias("mc_free")));
+
+#elif defined(ARCH_HOST) || defined(ARCH_ESP32)
 
 using namespace MallocCount;
 
@@ -338,7 +377,17 @@ void* operator new(size_t size)
 	return mc_malloc(size);
 }
 
+void* operator new(size_t size, const std::nothrow_t&)
+{
+	return mc_malloc(size);
+}
+
 void* operator new[](size_t size)
+{
+	return mc_malloc(size);
+}
+
+void* operator new[](size_t size, const std::nothrow_t&)
 {
 	return mc_malloc(size);
 }
@@ -377,11 +426,8 @@ extern "C" char* WRAP(strdup)(const char* s)
 
 #else
 
-extern "C" void* WRAP(pvPortMalloc)(size_t) __attribute__((alias("mc_malloc")));
-extern "C" void* WRAP(pvPortCalloc)(size_t, size_t) __attribute__((alias("mc_calloc")));
-extern "C" void* WRAP(pvPortRealloc)(void*, size_t) __attribute__((alias("mc_realloc")));
-extern "C" void* WRAP(pvPortZalloc)(size_t) __attribute__((alias("mc_zalloc")));
-extern "C" void* WRAP(pvPortZallocIram)(size_t) __attribute__((alias("mc_zalloc")));
-extern "C" void WRAP(vPortFree)(void*) __attribute__((alias("mc_free")));
+static_assert(false, "ARCH not supported");
 
 #endif
+
+#endif // ENABLE_MALLOC_COUNT
