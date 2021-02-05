@@ -86,7 +86,6 @@ protected:
 	{
 		if(err == ERR_OK) {
 			state = eHCS_Ready;
-			init(HTTP_RESPONSE);
 		}
 
 		return HttpConnection::onConnected(err);
@@ -98,7 +97,7 @@ private:
 	MultipartStream::BodyPart multipartProducer();
 
 private:
-	RequestQueue waitingQueue;   ///< Requests waiting to be started
+	RequestQueue waitingQueue;	 ///< Requests waiting to be started
 	RequestQueue executionQueue; ///< Requests being executed in a pipeline
 
 	HttpRequest* incomingRequest = nullptr;
